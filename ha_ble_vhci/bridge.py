@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from bumble import hci
@@ -14,6 +15,23 @@ log = logging.getLogger(__name__)
 
 class ScanOnlyController(Controller):
     """A controller that can only scan. Connection attempts always fail."""
+
+    on_scan_enabled = None  # callback(): host just switched LE scanning on
+
+    def on_hci_le_set_scan_enable_command(self, command):
+        result = super().on_hci_le_set_scan_enable_command(command)
+        self._scan_enabled_hook(command.le_scan_enable)
+        return result
+
+    def on_hci_le_set_extended_scan_enable_command(self, command):
+        result = super().on_hci_le_set_extended_scan_enable_command(command)
+        self._scan_enabled_hook(command.enable)
+        return result
+
+    def _scan_enabled_hook(self, enabled) -> None:
+        if enabled and self.on_scan_enabled:
+            # let the Command Complete event reach the host first
+            asyncio.get_running_loop().call_later(0.2, self.on_scan_enabled)
 
     def on_hci_le_create_connection_command(self, command):
         # No radio behind this controller: report failure instead of hanging.
@@ -71,3 +89,34 @@ def inject_advertisement(controller: Controller, info: dict) -> bool:
         )
         controller.send_hci_packet(report_cls([report]))
     return True
+
+
+class Feeder:
+    """Feeds HA advertisements to the controller and replays the latest known
+    advert of every device when the host starts scanning.
+
+    Home Assistant only forwards an advertisement when it changed, so devices
+    that were already seen before the host started scanning would otherwise
+    never show up.
+    """
+
+    MAX_CACHE = 2000
+
+    def __init__(self, controller: ScanOnlyController) -> None:
+        self.controller = controller
+        self.cache: dict[str, dict] = {}
+        controller.on_scan_enabled = self.replay
+
+    def feed(self, info: dict) -> bool:
+        address = info.get("address")
+        if address:
+            self.cache.pop(address, None)
+            self.cache[address] = info
+            if len(self.cache) > self.MAX_CACHE:
+                self.cache.pop(next(iter(self.cache)))
+        return inject_advertisement(self.controller, info)
+
+    def replay(self) -> None:
+        log.info("host started scanning: replaying %d known device(s)", len(self.cache))
+        for info in list(self.cache.values()):
+            inject_advertisement(self.controller, info)

@@ -23,8 +23,9 @@ phone/BLE device --BLE--> ESP32 (ESPHome) --API--> Home Assistant
   older ones fall back to rebuilding AD structures from parsed fields.
 * The host's `filter_duplicates` flag is ignored on purpose: every advert HA
   delivers is forwarded (caBLE adverts rotate their payload under one address).
-* HA de-duplicates identical consecutive adverts per scanner, so repeated
-  identical packets may be reported once.
+* HA only forwards an advertisement when it changed. Devices seen before the host
+  starts scanning are therefore replayed once (their latest advert) when scanning
+  is switched on; afterwards only HA's updates are forwarded.
 * The phone must be within BLE range of the ESP32 proxy, not of the PC.
 
 ## Requirements

@@ -1,2 +1,2 @@
-# Let members of the "plugdev" group create virtual HCI controllers.
-KERNEL=="vhci", GROUP="plugdev", MODE="0660"
+# Let the logged-in desktop user (uaccess) and plugdev create virtual HCI controllers.
+KERNEL=="vhci", TAG+="uaccess", GROUP="plugdev", MODE="0660"

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from bumble.transport import open_transport
 
-from .bridge import inject_advertisement, make_controller
+from .bridge import Feeder, make_controller
 from .ha import HaError, advertisements, check
 
 DEFAULT_TOKEN_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "ha-ble-vhci" / "token"
@@ -33,16 +33,16 @@ async def run(args: argparse.Namespace) -> None:
         print("OK: authenticated and subscribed to bluetooth advertisements")
         return
     transport = await open_transport("vhci:")
-    controller = make_controller(transport.source, transport.sink, args.address)
+    feeder = Feeder(make_controller(transport.source, transport.sink, args.address))
     logging.info("virtual controller registered; see `hciconfig` / `bluetoothctl list`")
     delivered = dropped = 0
     async for adv in advertisements(args.url, token, set(args.source) or None):
-        if inject_advertisement(controller, adv):
+        if feeder.feed(adv):
             delivered += 1
         else:
             dropped += 1
         if (delivered + dropped) % 500 == 0:
-            logging.info("advertisements delivered=%d dropped(not scanning)=%d", delivered, dropped)
+            logging.info("advertisements delivered=%d cached-only(not scanning)=%d", delivered, dropped)
 
 
 def main() -> None:

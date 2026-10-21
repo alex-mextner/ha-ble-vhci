@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-ble-vhci"
-version = "0.1.0"
+version = "0.1.1"
 description = "Use Home Assistant / ESPHome Bluetooth proxies as a local scan-only Bluetooth adapter (hciN) on Linux"
 readme = "README.md"
 license = { text = "MIT" }
