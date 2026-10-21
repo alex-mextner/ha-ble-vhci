@@ -1,0 +1,2 @@
+# Let members of the "plugdev" group create virtual HCI controllers.
+KERNEL=="vhci", GROUP="plugdev", MODE="0660"

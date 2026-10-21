@@ -1,0 +1,14 @@
+[Unit]
+Description=Home Assistant Bluetooth proxies as a local scan-only hciN
+After=network-online.target bluetooth.service
+Wants=network-online.target
+
+[Service]
+Environment=HA_URL=http://homeassistant.local:8123
+EnvironmentFile=-%h/.config/ha-ble-vhci/env
+ExecStart=%h/.local/share/ha-ble-vhci/venv/bin/ha-ble-vhci
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
