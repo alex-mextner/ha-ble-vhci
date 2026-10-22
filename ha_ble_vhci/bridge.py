@@ -107,7 +107,12 @@ class Feeder:
         self.cache: dict[str, dict] = {}
         controller.on_scan_enabled = self.replay
 
+    FIDO_UUID_PREFIXES = ("0000fff9-", "0000fde2-")  # FIDO hybrid (caBLE) advertisements
+
     def feed(self, info: dict) -> bool:
+        if any(key.lower().startswith(self.FIDO_UUID_PREFIXES) for key in (info.get("service_data") or {})):
+            log.info("FIDO hybrid advert from %s rssi=%s via %s (host scanning: %s)", info.get("address"),
+                     info.get("rssi"), info.get("source"), self.controller.le_scan_enable)
         address = info.get("address")
         if address:
             self.cache.pop(address, None)
