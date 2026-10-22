@@ -42,7 +42,7 @@ async def run(args: argparse.Namespace) -> None:
         else:
             dropped += 1
         if (delivered + dropped) % 500 == 0:
-            logging.info("advertisements delivered=%d cached-only(not scanning)=%d", delivered, dropped)
+            logging.debug("advertisements delivered=%d cached-only(not scanning)=%d", delivered, dropped)
 
 
 def main() -> None:
