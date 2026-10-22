@@ -108,7 +108,7 @@ class Feeder:
 
     def feed(self, info: dict) -> bool:
         if any(key.lower().startswith(self.FIDO_UUID_PREFIXES) for key in (info.get("service_data") or {})):
-            log.info("FIDO hybrid advert from %s rssi=%s via %s (host scanning: %s)", info.get("address"),
+            log.debug("FIDO hybrid advert from %s rssi=%s via %s (host scanning: %s)", info.get("address"),
                      info.get("rssi"), info.get("source"), self.controller.le_scan_enable)
         address = info.get("address")
         if address:
@@ -119,6 +119,6 @@ class Feeder:
         return inject_advertisement(self.controller, info)
 
     def replay(self) -> None:
-        log.info("host started scanning: replaying %d known device(s)", len(self.cache))
+        log.debug("host started scanning: replaying %d known device(s)", len(self.cache))
         for info in list(self.cache.values()):
             inject_advertisement(self.controller, info)
