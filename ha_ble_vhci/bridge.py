@@ -13,6 +13,10 @@ from .adv import full_advert, is_random_address, pack_reports
 log = logging.getLogger(__name__)
 
 
+# HCI *error* code 0x3E (not the LE Meta *event* code); Bumble renamed the enum member between releases
+HCI_ERR_CONNECTION_FAILED_TO_BE_ESTABLISHED = 0x3E
+
+
 class ScanOnlyController(Controller):
     """A controller that can only scan. Connection attempts always fail."""
 
@@ -37,7 +41,7 @@ class ScanOnlyController(Controller):
         # No radio behind this controller: report failure instead of hanging.
         self.send_hci_packet(
             hci.HCI_Command_Status_Event(
-                status=hci.HCI_ErrorCode.CONNECTION_FAILED_TO_BE_ESTABLISHED,
+                status=HCI_ERR_CONNECTION_FAILED_TO_BE_ESTABLISHED,
                 num_hci_command_packets=1,
                 command_opcode=command.op_code,
             )
@@ -107,9 +111,13 @@ class Feeder:
     FIDO_UUID_PREFIXES = ("0000fff9-", "0000fde2-")  # FIDO hybrid (caBLE) advertisements
 
     def feed(self, info: dict) -> bool:
-        if any(key.lower().startswith(self.FIDO_UUID_PREFIXES) for key in (info.get("service_data") or {})):
-            log.debug("FIDO hybrid advert from %s rssi=%s via %s (host scanning: %s)", info.get("address"),
-                     info.get("rssi"), info.get("source"), self.controller.le_scan_enable)
+        if log.isEnabledFor(logging.DEBUG) and any(
+            key.lower().startswith(self.FIDO_UUID_PREFIXES) for key in (info.get("service_data") or {})
+        ):
+            log.debug(
+                "FIDO hybrid advert from %s rssi=%s via %s (host scanning: %s)",
+                info.get("address"), info.get("rssi"), info.get("source"), self.controller.le_scan_enable,
+            )
         address = info.get("address")
         if address:
             self.cache.pop(address, None)
