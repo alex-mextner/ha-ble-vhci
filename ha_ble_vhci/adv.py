@@ -60,9 +60,51 @@ def adv_payload(info: dict) -> bytes:
     return rebuild_adv_data(info)
 
 
-def split_legacy(data: bytes) -> list[bytes]:
-    """Legacy advertising reports carry at most 31 bytes per report."""
-    return [data[i : i + LEGACY_MAX] for i in range(0, len(data), LEGACY_MAX)] or [b""]
+def tlvs(data: bytes) -> list[bytes]:
+    """Split advertising data into complete AD structures (a truncated tail is dropped)."""
+    out: list[bytes] = []
+    i = 0
+    while i < len(data) and data[i] != 0:
+        end = i + 1 + data[i]
+        if end > len(data):
+            break
+        out.append(data[i:end])
+        i = end
+    return out
+
+
+def full_advert(info: dict) -> list[bytes]:
+    """All AD structures to report for one device.
+
+    HA's ``raw`` is only the *latest* packet, while service/manufacturer data are aggregated across
+    packets. A phone alternates e.g. Apple continuity and FIDO hybrid (0xFFF9) packets, so the
+    latest raw packet alone may lack the FIDO service data HA still knows. Add the structures
+    that are missing from the raw packet.
+    """
+    raw = adv_payload(info) if info.get("raw") else b""
+    structures = tlvs(raw)
+    if info.get("raw"):
+        structures += [t for t in tlvs(rebuild_adv_data({**info, "name": None, "service_uuids": []}))
+                       if t not in structures]
+    else:
+        structures = tlvs(rebuild_adv_data(info))
+    return structures
+
+
+def pack_reports(structures: list[bytes], limit: int = LEGACY_MAX) -> list[bytes]:
+    """Greedily pack whole AD structures into legacy-report-sized chunks."""
+    chunks: list[bytes] = []
+    current = b""
+    for structure in structures:
+        if len(structure) > limit:
+            continue
+        if len(current) + len(structure) > limit:
+            chunks.append(current)
+            current = b""
+        current += structure
+    if current:
+        chunks.append(current)
+    return chunks or [b""]
 
 
 def is_random_address(address: str) -> bool:

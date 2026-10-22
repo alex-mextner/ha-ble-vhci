@@ -8,7 +8,7 @@ import logging
 from bumble import hci
 from bumble.controller import Controller
 
-from .adv import adv_payload, is_random_address, split_legacy
+from .adv import full_advert, is_random_address, pack_reports
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def inject_advertisement(controller: Controller, info: dict) -> bool:
         return False
     try:
         address = info["address"]
-        data = adv_payload(info)
+        chunks = pack_reports(full_advert(info))
     except (KeyError, ValueError):
         log.debug("skipping malformed advertisement: %r", info)
         return False
@@ -73,18 +73,15 @@ def inject_advertisement(controller: Controller, info: dict) -> bool:
         if is_random_address(address)
         else hci.Address.PUBLIC_DEVICE_ADDRESS
     )
-    parts = split_legacy(data)
     report_cls = hci.HCI_LE_Advertising_Report_Event
-    for index, part in enumerate(parts):
+    for chunk in chunks:
+        # every chunk is its own non-connectable report: the kernel reports those immediately and
+        # BlueZ merges the AD data of all reports of one device
         report = report_cls.Report(
-            event_type=(
-                report_cls.EventType.ADV_NONCONN_IND
-                if index == 0
-                else report_cls.EventType.SCAN_RSP
-            ),
+            event_type=report_cls.EventType.ADV_NONCONN_IND,
             address_type=addr_type,
             address=hci.Address(address, addr_type),
-            data=part,
+            data=chunk,
             rssi=max(-127, min(20, int(info.get("rssi", -70)))),
         )
         controller.send_hci_packet(report_cls([report]))
