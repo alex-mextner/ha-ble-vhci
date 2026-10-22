@@ -91,20 +91,29 @@ def full_advert(info: dict) -> list[bytes]:
     return structures
 
 
+AD_FLAGS = 0x01
+
+
 def pack_reports(structures: list[bytes], limit: int = LEGACY_MAX) -> list[bytes]:
-    """Greedily pack whole AD structures into legacy-report-sized chunks."""
+    """Greedily pack whole AD structures into legacy-report-sized chunks.
+
+    The Flags structure is repeated in every chunk: BlueZ treats a report without flags as coming
+    from a non-discoverable device.
+    """
+    flags = next((t for t in structures if len(t) > 1 and t[1] == AD_FLAGS), b"")
+    body = [t for t in structures if t is not flags and t != flags]
     chunks: list[bytes] = []
-    current = b""
-    for structure in structures:
-        if len(structure) > limit:
+    current = flags
+    for structure in body:
+        if len(structure) + len(flags) > limit:
             continue
         if len(current) + len(structure) > limit:
             chunks.append(current)
-            current = b""
+            current = flags
         current += structure
-    if current:
+    if len(current) > len(flags) or not chunks:
         chunks.append(current)
-    return chunks or [b""]
+    return chunks
 
 
 def is_random_address(address: str) -> bool:
