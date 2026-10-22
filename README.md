@@ -60,6 +60,22 @@ systemctl --user daemon-reload && systemctl --user enable --now ha-ble-vhci
 Check: `bluetoothctl list` shows a new controller, `bluetoothctl scan on` lists
 devices seen by the ESP32. Use `--source <scanner MAC>` to listen to one proxy only.
 
+## Health
+
+The bridge looks healthy even when the ESP32 proxy is powered off (Home Assistant
+simply has no scanner), and Bluetooth clients such as Firefox's passkey QR dialog
+then wait forever. To see whether a proxy is online:
+
+```sh
+ha-ble-vhci --scanners    # one line per proxy; exit 0, or exit 4 "no Bluetooth proxy is online in Home Assistant"
+journalctl --user -u ha-ble-vhci | grep -i scanner
+```
+
+The service logs `Bluetooth scanner online: <name>` (INFO), and WARNING
+`no Bluetooth scanner is connected to Home Assistant: ...` when the last proxy
+disappears or when none is present 15 s after (re)connecting. `--check` is
+unchanged (auth only).
+
 ## Credits
 
 The BlueZ-side Bumble setup (disabling LL privacy / extended advertising for
