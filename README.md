@@ -67,7 +67,7 @@ simply has no scanner), and Bluetooth clients such as Firefox's passkey QR dialo
 then wait forever. To see whether a proxy is online:
 
 ```sh
-ha-ble-vhci --scanners    # one line per proxy; exit 0, or exit 4 "no Bluetooth proxy is online in Home Assistant"
+ha-ble-vhci --scanners    # one line per proxy; exit 0 / 4 no proxy online / 5 Home Assistant cannot be reached / 1 it answered and refused
 journalctl --user -u ha-ble-vhci | grep -i scanner
 ```
 
@@ -75,6 +75,16 @@ The service logs `Bluetooth scanner online: <name>` (INFO), and WARNING
 `no Bluetooth scanner is connected to Home Assistant: ...` when the last proxy
 disappears or when none is present 15 s after (re)connecting. `--check` is
 unchanged (auth only).
+
+The bridge never polls Home Assistant: it holds one WebSocket subscription and Home
+Assistant pushes both the advertisements and the scanner list. When Home Assistant goes
+away (a restart takes minutes) the service stays up, retries with a backoff of 1 s doubling
+to 30 s forever, and logs one WARNING when the outage starts
+(`Home Assistant unreachable: ...`) and one INFO when it is over
+(`Home Assistant is back after N s`); the retries in between are DEBUG (`-v`). Only a Home
+Assistant that answers and refuses (rejected token, no admin rights) ends the service, and
+systemd restarts it. `--scanners` and `--check` exit 5 when Home Assistant cannot be
+reached at all and 1 when it answered and refused.
 
 ## Credits
 

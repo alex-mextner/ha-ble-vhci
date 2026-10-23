@@ -12,12 +12,13 @@ from pathlib import Path
 from bumble.transport import open_transport
 
 from .bridge import Feeder, make_controller
-from .ha import HaError, ScannerTracker, advertisements, check, list_scanners, scanner_label
+from .ha import HaError, HaUnreachable, ScannerTracker, advertisements, check, list_scanners, scanner_label
 
 DEFAULT_TOKEN_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "ha-ble-vhci" / "token"
 
 
 EXIT_NO_SCANNER = 4
+EXIT_UNREACHABLE = 5  # Home Assistant down, restarting or not resolvable; exit 1 stays "reachable but refuses"
 NO_SCANNER_MESSAGE = "no Bluetooth proxy is online in Home Assistant"
 
 
@@ -64,16 +65,17 @@ def main() -> None:
     parser.add_argument("--source", action="append", default=[], help="only forward adverts from this HA scanner source (MAC); repeatable")
     parser.add_argument("--address", default="F0:CA:FE:00:00:01", help="public address of the virtual controller")
     parser.add_argument("--check", action="store_true", help="only verify URL, token and admin rights, then exit (no /dev/vhci needed)")
-    parser.add_argument("--scanners", action="store_true", help="list Bluetooth proxies online in Home Assistant; exit 4 if none (no /dev/vhci needed)")
+    parser.add_argument("--scanners", action="store_true", help="list Bluetooth proxies online in Home Assistant; exit 4 if none, 5 if Home Assistant cannot be reached (no /dev/vhci needed)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(levelname)s %(message)s")
     try:
         asyncio.run(run(args))
+    except HaUnreachable as err:
+        print(f"cannot reach Home Assistant at {args.url}: {err}", file=sys.stderr)
+        sys.exit(EXIT_UNREACHABLE)
     except HaError as err:
         sys.exit(str(err))
-    except OSError as err:
-        sys.exit(f"cannot reach Home Assistant at {args.url}: {err}")
     except KeyboardInterrupt:
         pass
 
