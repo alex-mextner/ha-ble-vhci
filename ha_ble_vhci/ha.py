@@ -16,6 +16,7 @@ ADV_ID = 1
 SCANNER_ID = 2
 NO_SCANNER_GRACE = 15.0  # seconds after (re)subscribing before warning about zero scanners
 STABLE_SECONDS = 30.0  # a connection that lasted this long was healthy: the next retry starts at 1 s again
+HANDSHAKE_TIMEOUT = 15.0  # greeting and auth answers: longer silence means Home Assistant is not really there
 NO_SCANNER_MESSAGE = "no Bluetooth scanner is connected to Home Assistant: passkey QR cannot work until a proxy comes back"
 
 
@@ -87,7 +88,9 @@ class ScannerTracker:
 
 async def _receive_json(ws: aiohttp.ClientWebSocketResponse) -> dict:
     try:
-        return await ws.receive_json()
+        return await asyncio.wait_for(ws.receive_json(), HANDSHAKE_TIMEOUT)
+    except asyncio.TimeoutError as err:  # accepted the connection but never speaks (overloaded, half started)
+        raise HaUnreachable("Home Assistant did not answer the handshake") from err
     except (TypeError, ValueError) as err:  # closed or garbled mid-handshake: Home Assistant is going down
         raise HaUnreachable("Home Assistant dropped the connection during the handshake") from err
 

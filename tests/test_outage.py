@@ -155,6 +155,15 @@ class Reconnect(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HaUnreachable):
             await ha._receive_json(Closed())
 
+    async def test_a_home_assistant_that_accepts_the_connection_but_never_speaks_is_unreachable_not_a_hang(self):
+        class Silent:
+            async def receive_json(self):
+                await asyncio.sleep(3600)
+
+        with mock.patch.object(ha, "HANDSHAKE_TIMEOUT", 0.05), self.assertRaises(HaUnreachable) as raised:
+            await ha._receive_json(Silent())
+        self.assertIn("did not answer the handshake", str(raised.exception))
+
     async def test_recovery_is_only_logged_after_an_outage(self):
         outage = ha.Outage()
         with self.assertNoLogs("ha_ble_vhci.ha", "INFO"):
