@@ -2,12 +2,14 @@
 Description=Home Assistant Bluetooth proxies as a local scan-only hciN
 After=network-online.target bluetooth.service
 Wants=network-online.target
+# Never give up restarting: a Home Assistant outage or a killed process must heal itself, however often it recurs.
+StartLimitIntervalSec=0
 
 [Service]
 Environment=HA_URL=http://homeassistant.local:8123
 EnvironmentFile=-%h/.config/ha-ble-vhci/env
 ExecStart=%h/.local/share/ha-ble-vhci/venv/bin/ha-ble-vhci
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
